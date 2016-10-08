@@ -146,32 +146,34 @@ class Snmp {
      *
      */
     protected function output($exec_output, $exec_return) {
-
-        if ($exec_return == 127) {
+        $error = false;
+        $_ret = [];
+        if ($exec_return > 0) {
             // 127 = command not found
-            throw new \Exception($exec_output[0]);
+            // timeout
+            $_ret = ['result' => false, 'error_code' => $exec_return, 'error_message' => $exec_output[0]];
+                
         }
 
-        $_ret = array();
+        
+        if(!$error){
+            for ($i=0; $i<count($exec_output); $i++) {
+                $tok = strtok($exec_output[$i], ' ');
+                if ( preg_match('/^\.1\./', $tok) ) {
+                    $oid = $tok;
+                    $value = str_replace('"', '', ltrim(str_replace($oid, '', $exec_output[$i])));
 
-        for ($i=0; $i<count($exec_output); $i++) {
-            $tok = strtok($exec_output[$i], ' ');
-
-            if ( preg_match('/^\.1\./', $tok) ) {
-                $oid = $tok;
-                $value = str_replace('"', '', ltrim(str_replace($oid, '', $exec_output[$i])));
-
-                if ($value == 'No Such Object available on this agent at this OID'
-                    || $value == 'No Such Instance currently exists at this OID') {
-                    $_ret[$oid] = '';
-                } else {
-                    $_ret[$oid] = $value;
+                    if ($value == 'No Such Object available on this agent at this OID'
+                        || $value == 'No Such Instance currently exists at this OID') {
+                        $_ret[$oid] = '';
+                    } else {
+                        $_ret[$oid] = $value;
+                    }
+                } elseif ( isset($oid) ) {
+                    $_ret[$oid] .= "\n" . $exec_output[$i];
                 }
-            } elseif ( isset($oid) ) {
-                $_ret[$oid] .= "\n" . $exec_output[$i];
             }
         }
-
         return $_ret;
     }
 }
